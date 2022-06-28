@@ -1,15 +1,8 @@
+%  REFERENCES: Upadhyaya P, Jarlbering E, Tudisco F. The self-consistent 
+% field iteration for p-spectral clustering.2021 
 clc,clear
-% data = [1.5,1.5;3.5,1.5;1.5,2.5;3.5,2.5];
-load('Twomoons800.mat'); data = twomoons;
+load('Twomoons.mat'); data = twomoons;
 num_cluster = 2;
-% function C = scknn(data, k, c)
-% scknn: this algorithm clusters a set of points into c subsets using
-%        spectral clustering based on undirected k-nearest neighbors.
-% Input: data is a set of n points. k is the number of nearest neighbors.
-%        c is the number of cluster to construct.
-% Output: C are the clusters C1,...,Cc.
-% Reference: M. Lucinska, S. T. Wierzchon, Spectral clustering based on 
-%            k nearest neighbor graph, 2012.
 [n, ~] = size(data);
 x = data;
 %% Construct a similarity matrix based on k-nearest neighbor.
@@ -46,8 +39,7 @@ for i = 1:n
     for j = i+1:n      
        if K(i,j) == 1
         B(m,i) = -1;
-        B(m,j) = 1;
-        
+        B(m,j) = 1;        
         D_w(m,m) = S(i,j);
         m = m+1;   
        end       
@@ -64,50 +56,12 @@ L = D - S;
 V = v0(:,2);
 res = 1;
 k = 1;
-a = 1.e5;
-p = 1.2;
-% while res > 1/a
-%     N = B.'*D_w*(diag(abs(B*V(:,k))))^(p-2)*B;
-%     R = (diag(V(:,k)))^(p-2);
-%     M = R\N;
-% %     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
-%     [vecter, value] = eig(M);
-%     V(:,k+1) = vecter(:,182);
-%     lambda = value(182,182);    
-%     k = k+1;  
-%     res = (N - lambda*R)*V(:,k);
-% end
+a = 100;
+p = 1.9;
 
-% 2
-while res > 1/a
-    N = B.'*D_w*(diag(abs(B*V(:,k))))^(p-2)*B;
-    R = (diag(V(:,k)))^(p-2);
-    M = R^(-1/2)*N*R^(-1/2);
-%     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
-    [vecter, value] = eig(M);
-    V(:,k+1) = R^(-1/2)*vecter(:,2);
-    lambda = value(2,2);    
-    k = k+1;  
-    res = (N - lambda*R)*V(:,k);
-end
-
-% 3
-% while res > 1/a
-%     sfBx = 2*log(1+exp(-a*B*V(:,k)))/a;
-%     sfx = 2*log(1+exp(-a*V(:,k)))/a;
-%     N = B.'*D_w*(diag(sfBx))^(p-2)*B;
-%     R = (diag(sfx))^(p-2);
-%     M = R^(-1/2)*N*R^(-1/2);
-% %     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
-%     [vecter, value] = eig(M);
-%     V(:,k+1) = R^(-1/2)*vecter(:,2);
-%     lambda = value(2,2);    
-%     k = k+1;  
-%     res = (N - lambda*R)*V(:,k);
-% end
-
-
-
+% [V,k] = Algorithm1(B,D_w,V,a,res,p,k);
+% [V,k] = Algorithm2(B,D_w,V,a,res,p,k);
+[V,k] = Algorithm3(B,D_w,V,a,res,p,k);
 
 
 %% Cluster the points with k-means algorithm.
@@ -133,10 +87,60 @@ end
 RCut = (1/num_class_1 + 1/num_class_2) * w
 RCC = w / min(num_class_1,num_class_2)
 
-
+%% Plot
 figure(1)
 clf
 plot(data(C==1,1),data(C==1,2),'r.','MarkerSize',10,'linewidth',5); 
 hold on
-plot(data(C==2,1),data(C==2,2),'k.','MarkerSize',10,'linewidth',5);
+plot(data(C==2,1),data(C==2,2),'b.','MarkerSize',10,'linewidth',5);
+title('Spectral clustering');
+set(gca,'FontSize',18)
+set(gca,'FontName','times')
+set(gcf,'color',[1,1,1]);
 % end
+
+
+
+function [V,k] = Algorithm1(B,D_w,V,a,res,p,k)
+    while res > 1/a
+        N = B.'*D_w*(diag(abs(B*V(:,k))))^(p-2)*B; 
+        R = (diag(abs(V(:,k))))^(p-2);
+        M = R\N;
+    %     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
+        [vecter, value] = eig(M);
+        V(:,k+1) = vecter(:,2); 
+        lambda = value(2,2);
+        k = k+1; 
+        res = norm((N - lambda*R)*V(:,k));
+    end
+end
+
+function [V,k] = Algorithm2(B,D_w,V,a,res,p,k)
+    while res > 1/a
+        N = B.'*D_w*(diag(abs(B*V(:,k))))^(p-2)*B;
+        R = (diag(abs(V(:,k))))^(p-2);
+        M = R^(-1/2)*N*R^(-1/2);
+    %     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
+        [vecter, value] = eig(M);
+        V(:,k+1) = R^(-1/2)*vecter(:,2);
+        lambda = value(2,2);    
+        k = k+1;  
+        res = norm((N - lambda*R)*V(:,k));
+    end
+end
+
+function [V,k] = Algorithm3(B,D_w,V,a,res,p,k)
+    while res > 1/a
+        sfBx = 2*log(1+exp(-a*B*V(:,k)))/a;
+        sfx = 2*log(1+exp(-a*V(:,k)))/a;
+        N = B.'*D_w*(diag(abs(sfBx)))^(p-2)*B;
+        R = (diag(abs(sfx)))^(p-2);
+        M = R^(-1/2)*N*R^(-1/2);
+    %     [vecter, value] = eigs(M, 2, 'smallestabs');  M is singular matrix,
+        [vecter, value] = eig(M);
+        V(:,k+1) = R^(-1/2)*vecter(:,2);
+        lambda = value(2,2);    
+        k = k+1;  
+        res = norm((N - lambda*R)*V(:,k));
+    end
+end
